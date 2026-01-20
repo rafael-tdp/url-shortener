@@ -1,47 +1,64 @@
-import Link from "../models/link.js";
+import linkService from "../services/linkService.js";
+import { validateSlug } from "../utils/validators.js";
+import { ERROR_MESSAGES, HTTP_STATUS } from "../config/constants.js";
+import logger from "../utils/logger.js";
 
-export const createLink = async (req, res) => {
+/**
+ * Controller for link-related HTTP requests
+ */
+
+/**
+ * Creates a new shortened link from a URL
+ * POST /api/links
+ *
+ * @param {Object} req - Express request with body.url
+ * @param {Object} res - Express response
+ */
+export const createLink = async (req, res, next) => {
 	try {
 		const { url } = req.body;
 
-		if (!url) {
-			return res.status(400).json({ error: "URL is required" });
-		}
+		// Service handles all validation and link creation
+		const result = await linkService.createLink(url);
 
-		// Validate URL format
-		try {
-			new URL(url);
-		} catch {
-			return res.status(400).json({ error: "Invalid URL format" });
-		}
-
-		const newLink = await Link.create({ url });
-		return res.status(201).json({
-			url: newLink.url,
-			shortenedUrl: `http://localhost:3000/r/${newLink.slug}`,
-		});
+		return res.status(HTTP_STATUS.CREATED).json(result);
 	} catch (error) {
-		res.status(500).json({ error: `Failed to create shortened URL: ${error.message}` });
+		next(error);
 	}
 };
 
-export const redirectLink = async (req, res) => {
+/**
+ * Redirects to original URL based on slug
+ * GET /r/:slug
+ *
+ * @param {Object} req - Express request with params.slug
+ * @param {Object} res - Express response
+ */
+export const redirectLink = async (req, res, next) => {
 	try {
 		const { slug } = req.params;
 
-		if (!slug) {
-			return res.status(400).json({ error: "Slug is required" });
+		// Validate slug
+		const validation = validateSlug(slug);
+		if (!validation.isValid) {
+			const error = new Error(validation.error);
+			error.statusCode = HTTP_STATUS.NOT_FOUND;
+			throw error;
 		}
 
-		const link = await Link.findOne({ where: { slug } });
-		
+		// Get link from service
+		const link = await linkService.getLinkBySlug(slug);
+
 		if (!link) {
-			return res.status(404).send("Lien non trouvé");
+			logger.warn(`Redirect attempt with non-existent slug: ${slug}`);
+			const error = new Error(ERROR_MESSAGES.SLUG_NOT_FOUND);
+			error.statusCode = HTTP_STATUS.NOT_FOUND;
+			throw error;
 		}
 
-		// HTTP redirection
-		return res.redirect(301, link.url);
+		// HTTP 301 permanent redirect
+		return res.redirect(HTTP_STATUS.OK + 101, link.url); // 301
 	} catch (error) {
-		res.status(500).json({ error: `Failed to redirect: ${error.message}` });
+		next(error);
 	}
 };

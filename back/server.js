@@ -1,20 +1,25 @@
 import app, { initializeDatabase } from "./app.js";
 import http from "http";
+import { CONFIG } from "./config/constants.js";
+import logger from "./utils/logger.js";
 
-const PORT = process.env.PORT || 3000;
-app.set("port", PORT);
+app.set("port", CONFIG.PORT);
 
 const server = http.createServer(app);
 
-// Initialize database before starting server
+/**
+ * Start the server
+ */
 async function start() {
-	await initializeDatabase();
-	server.listen(PORT, () => {
-		console.log(`Server running on PORT ${PORT}`);
-	});
+	try {
+		await initializeDatabase();
+		server.listen(CONFIG.PORT, () => {
+			logger.info(`✓ Server running on http://localhost:${CONFIG.PORT}`);
+		});
+	} catch (error) {
+		logger.error("✗ Failed to start server:", error.message);
+		process.exit(1);
+	}
 }
 
-start().catch(error => {
-	console.error("Failed to start server:", error);
-	process.exit(1);
-});
+start();

@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node tests/validators.test.js",
+    "test:watch": "nodemon tests/validators.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
